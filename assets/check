@@ -135,12 +135,33 @@ fi
 
 if [ -n "$tag_filter" ]; then
   {
-    if [ -n "$ref" ] && [ -n "$branch" ]; then
-      tags=$(git tag --list "$tag_filter" --sort=creatordate --contains $ref --merged $branch)
-      get_commit $tags
-    elif [ -n "$ref" ]; then
-      tags=$(git tag --list "$tag_filter" --sort=creatordate | lines_including_and_after $ref)
-      get_commit $tags
+    if [ -n "$ref" ]; then
+      if [ -n "$branch" ]; then
+        tags=$(git tag --list "$tag_filter" --sort=creatordate --merged $branch | lines_including_and_after $ref)
+      else
+        tags=$(git tag --list "$tag_filter" --sort=creatordate | lines_including_and_after $ref)
+      fi
+      if [ -n "$tags" -a -n "$paths_search" ]; then
+        original_tags="$tags"
+        tags=""
+        for tag in $original_tags; do
+          # find the most recent commit that matches the search path
+          path_commit=$(git rev-list -n 1 $tag $paths_search)
+          if [ -z "$path_commit" ]; then
+            continue
+          fi
+          tag_commit=$(git rev-list -n 1 $tag)
+          if [ "$tag_commit" != "$path_commit" ]; then
+            # exclude the tag if another tag is closer to the commit
+            other_tag_commit=$(git rev-list -n 1 $(git tag --list "$tag_filter" --sort=creatordate --contains $path_commit | head -n 1))
+            if [ "$tag_commit" != "$other_tag_commit" ]; then
+              continue
+            fi
+          fi
+          tags="$tags$tag\n"
+        done
+      fi
+      get_commit "$(echo -e "$tags")"
     else
       branch_flag=
       if [ -n "$branch" ]; then
