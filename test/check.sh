@@ -689,6 +689,25 @@ it_can_check_with_tag_filter_given_branch_first_ref() {
   "
 }
 
+it_can_check_with_tag_filter_given_paths() {
+  local repo=$(init_repo)
+  local ref1=$(make_commit_to_file_on_branch_with_path $repo path-a file-a master "path-a/file-a on master")
+  local ref2=$(make_annotated_tag $repo "test.tag.1" "tag 1")
+  local ref3=$(make_commit_to_file_on_branch_with_path $repo path-b file-b1 master "path-b/file-b on master")
+  local ref4=$(make_annotated_tag $repo "test.tag.2" "tag 1")
+  local ref5=$(make_commit_to_file_on_branch_with_path $repo path-b file-b2 master "path-b/file-b on master")
+  local ref6=$(make_annotated_tag $repo "test.tag.3" "tag 1")
+
+  check_uri_with_tag_filter_from_given_paths $repo "test.tag.*" "$ref2" "path-b" | jq -e "
+    . == [{ref: \"test.tag.2\", commit: \"$ref3\"},{ref: \"test.tag.3\", commit: \"$ref5\"}]
+  "
+
+  # select the older commit with a file match
+  check_uri_with_tag_filter_from_given_paths $repo "test.tag.*" "$ref2" "path-b/file-b1" | jq -e "
+    . == [{ref: \"test.tag.2\", commit: \"$ref3\"}]
+  "
+}
+
 it_can_check_and_set_git_config() {
   local repo=$(init_repo)
   local ref=$(make_commit $repo)
@@ -783,3 +802,4 @@ run it_can_check_from_a_ref_with_paths_merged_in
 run it_can_check_with_tag_filter_given_branch_first_ref
 run it_checks_lastest_commit
 run it_can_check_a_repo_having_multiple_root_commits
+run it_can_check_with_tag_filter_given_paths
